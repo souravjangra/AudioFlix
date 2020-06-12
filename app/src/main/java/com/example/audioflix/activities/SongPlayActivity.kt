@@ -1,11 +1,10 @@
 package com.example.audioflix.activities
 
-import android.media.AudioManager
+import android.content.Context
+import android.content.SharedPreferences
 import android.media.MediaPlayer
-import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
@@ -16,10 +15,9 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.audioflix.R
 import kotlinx.android.synthetic.main.activity_songplay.*
-import kotlinx.android.synthetic.main.activity_songplay.view.*
-import java.lang.Exception
 import java.math.RoundingMode
 import java.text.DecimalFormat
+
 
 class SongPlayActivity : AppCompatActivity() {
 
@@ -31,6 +29,7 @@ class SongPlayActivity : AppCompatActivity() {
     private var songTotalDuration: TextView ?= null
     private var seekBar: SeekBar ?= null
     private var mediaPlayer: MediaPlayer ?= null
+    private var audioPlaying: Boolean ?= null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,10 +53,12 @@ class SongPlayActivity : AppCompatActivity() {
                 handler?.removeCallbacks(updater())
                 mediaPlayer?.pause()
                 imageView?.setImageResource(R.drawable.ic_play)
+                audioPlaying = false
             }else {
                 mediaPlayer?.start()
                 imageView?.setImageResource(R.drawable.ic_pause)
                 updateSeekBar()
+                audioPlaying = true
             }
         }
 
@@ -86,6 +87,13 @@ class SongPlayActivity : AppCompatActivity() {
                 songTotalDuration?.setText(R.string.zero)
                 mediaPlayer?.reset()
                 prepareMediaPlayer()
+            }
+        })
+
+        play_song_layout?.setOnTouchListener(object : OnSwipeTouchListener(this) {
+            override fun onSwipeRight() {
+                super.onSwipeRight()
+                onBackPressed()
             }
         })
 
@@ -155,5 +163,44 @@ class SongPlayActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean {
         onBackPressed()
         return true
+    }
+
+    override fun onBackPressed() {
+        super.onBackPressed()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        val prefs = getSharedPreferences("audioFlix", Context.MODE_PRIVATE)
+        val editor: SharedPreferences.Editor = prefs.edit()
+        mediaPlayer?.pause()
+        val length: Int = mediaPlayer!!.currentPosition
+        val duration: Int = mediaPlayer!!.duration
+
+        editor.putInt("audioLength", length);
+        editor.putInt("audioDuration", duration);
+        editor.putBoolean("audioPlaying", audioPlaying!!);
+        editor.apply()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val sharedPrefs: SharedPreferences = getSharedPreferences("audioFlix", Context.MODE_PRIVATE);
+        var length: Int? = sharedPrefs.getInt("audioLength", -1)
+        var duration: Int? = sharedPrefs.getInt("audioDuration", -1)
+        var playing: Boolean = sharedPrefs.getBoolean("audioPlaying", false)
+        Log.d(TAG, "onResume: " + length)
+        if (length != null) {
+            mediaPlayer?.seekTo(length)
+            seekBar?.setProgress(((length.toFloat()/duration!!)*100).toInt())
+        }
+        if(playing) {
+            mediaPlayer?.start()
+            audioPlaying = playing
+            imageView?.setImageResource(R.drawable.ic_pause)
+        } else {
+            audioPlaying = false
+            imageView?.setImageResource(R.drawable.ic_play)
+        }
     }
 }
